@@ -141,6 +141,24 @@ jQuery(document).ready(function($) {
         $('#abg-restore-ready-box').hide();
         $('#abg-upload-container').fadeIn();
         $('#abg-upload-file').val('');
+        $('#abg-selected-file-name').hide().text('');
+    });
+
+    // Trigger file input when clicking the upload box
+    $('#abg-upload-container').on('click', function(e) {
+        if (e.target.id !== 'abg-manual-upload-btn') {
+            $('#abg-upload-file').click();
+        }
+    });
+
+    // Show selected file name
+    $('#abg-upload-file').on('change', function() {
+        const file = this.files[0];
+        if (file) {
+            $('#abg-selected-file-name').text('Selected: ' + file.name).fadeIn();
+        } else {
+            $('#abg-selected-file-name').hide().text('');
+        }
     });
 
     // Local Restore button
@@ -270,6 +288,21 @@ jQuery(document).ready(function($) {
                 location.reload();
             });
         }
+    });
+
+    // Auto-save backup toggle
+    $('input[name="abg_settings[backup_enabled]"]').on('change', function() {
+        const isEnabled = $(this).is(':checked') ? 1 : 0;
+        const $form = $(this).closest('form');
+        
+        // Use standard WordPress options saving for the whole form or just this field?
+        // Since it's part of a group, we can just trigger the form submission via AJAX
+        // or a custom handler. Let's add a custom handler for better control.
+        $.post(abg_vars.ajax_url, {
+            action: 'abg_save_toggle',
+            nonce: abg_vars.nonce,
+            enabled: isEnabled
+        });
     });
 
     let progressInterval;

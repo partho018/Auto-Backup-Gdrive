@@ -27,6 +27,7 @@ class ABG_Scheduler {
         add_action( 'wp_ajax_abg_disconnect', array( $this, 'ajax_disconnect' ) );
         add_action( 'wp_ajax_abg_fix_domain', array( $this, 'ajax_fix_domain' ) );
         add_action( 'wp_ajax_abg_download_from_gdrive', array( $this, 'ajax_download_from_gdrive' ) );
+        add_action( 'wp_ajax_abg_save_toggle', array( $this, 'ajax_save_toggle' ) );
         add_action( 'update_option_abg_settings', array( $this, 'reschedule_backups' ), 10, 2 );
     }
 
@@ -321,5 +322,17 @@ class ABG_Scheduler {
 
         wp_clear_scheduled_hook( 'abg_scheduled_backup' );
         wp_schedule_event( time(), $new_value['backup_frequency'], 'abg_scheduled_backup' );
+    }
+
+    public function ajax_save_toggle() {
+        check_ajax_referer( 'abg_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $enabled = intval( $_POST['enabled'] );
+        $settings = get_option( 'abg_settings', array() );
+        $settings['backup_enabled'] = $enabled;
+        update_option( 'abg_settings', $settings );
+
+        wp_send_json_success();
     }
 }
