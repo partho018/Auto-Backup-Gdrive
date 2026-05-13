@@ -28,6 +28,7 @@ class ABG_Scheduler {
         add_action( 'wp_ajax_abg_fix_domain', array( $this, 'ajax_fix_domain' ) );
         add_action( 'wp_ajax_abg_download_from_gdrive', array( $this, 'ajax_download_from_gdrive' ) );
         add_action( 'wp_ajax_abg_save_toggle', array( $this, 'ajax_save_toggle' ) );
+        add_action( 'wp_ajax_abg_delete_local_backup', array( $this, 'ajax_delete_local_backup' ) );
         add_action( 'update_option_abg_settings', array( $this, 'reschedule_backups' ), 10, 2 );
     }
 
@@ -334,5 +335,20 @@ class ABG_Scheduler {
         update_option( 'abg_settings', $settings );
 
         wp_send_json_success();
+    }
+
+    public function ajax_delete_local_backup() {
+        check_ajax_referer( 'abg_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $file_name = sanitize_text_field( $_POST['file_name'] );
+        $engine = new ABG_Backup_Engine();
+        $result = $engine->delete_local_backup( $file_name );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( $result->get_error_message() );
+        } else {
+            wp_send_json_success();
+        }
     }
 }

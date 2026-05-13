@@ -362,9 +362,14 @@ class ABG_Settings_Page {
                                                 </div>
                                                 <span title="<?php echo esc_attr( $backup['name'] ); ?>" style="font-size: 14px; font-weight: 700; color: var(--abg-text-main); font-family: monospace;"><?php echo esc_html( $backup['name'] ); ?></span>
                                             </div>
-                                            <button type="button" class="button abg-local-restore-btn" data-path="<?php echo esc_attr( $backup['path'] ); ?>" data-name="<?php echo esc_attr( $backup['name'] ); ?>">
-                                                <span class="dashicons dashicons-migrate"></span> <?php _e( 'Restore', 'auto-backup-gdrive' ); ?>
-                                            </button>
+                                            <div style="display: flex; gap: 8px;">
+                                                <button type="button" class="button abg-local-restore-btn" data-path="<?php echo esc_attr( $backup['path'] ); ?>" data-name="<?php echo esc_attr( $backup['name'] ); ?>">
+                                                    <span class="dashicons dashicons-migrate"></span> <?php _e( 'Restore', 'auto-backup-gdrive' ); ?>
+                                                </button>
+                                                <button type="button" class="button abg-local-delete-btn" data-name="<?php echo esc_attr( $backup['name'] ); ?>" style="background: #fee2e2 !important; color: #ef4444 !important; border: 1px solid #fecaca !important; border-radius: 8px; padding: 6px 12px; font-weight: 600;">
+                                                    <span class="dashicons dashicons-trash" style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle;"></span>
+                                                </button>
+                                            </div>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>

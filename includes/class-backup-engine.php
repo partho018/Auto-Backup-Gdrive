@@ -354,6 +354,16 @@ class ABG_Backup_Engine {
         $zip_name = get_option( 'abg_current_zip_name' );
         $this->log_backup( $zip_name );
         
+        // Retention Policy: Delete old backups from Google Drive
+        $settings = get_option( 'abg_settings', array() );
+        $keep_count = isset( $settings['keep_backups'] ) ? intval( $settings['keep_backups'] ) : 5;
+        
+        $gdrive = new ABG_GDrive_Service();
+        $folder_id = $gdrive->get_or_create_folder( 'ABG Backups' );
+        if ( $folder_id ) {
+            $gdrive->delete_old_backups( $folder_id, $keep_count );
+        }
+
         // Clean up temp options and files
         delete_option( 'abg_backup_file_list' );
         delete_option( 'abg_backup_current_index' );
@@ -365,6 +375,10 @@ class ABG_Backup_Engine {
         $file_list_path = $this->backup_dir . '/file_list.txt';
         if ( file_exists( $file_list_path ) ) @unlink( $file_list_path );
         
+        // Also clean up local zip after successful cloud upload
+        $zip_path = $this->backup_dir . '/' . $zip_name;
+        if ( file_exists( $zip_path ) ) @unlink( $zip_path );
+
         $this->set_progress( 'Backup completed successfully!' );
         return true;
     }
@@ -787,6 +801,29 @@ class ABG_Backup_Engine {
         fclose( $handle );
 
         return true;
+    }
+
+    public function delete_local_backup( $file_name ) {
+        $file_path = $this->backup_dir . '/' . sanitize_file_name( $file_name );
+        
+        if ( file_exists( $file_path ) ) {
+            if ( @unlink( $file_path ) ) {
+                // Also remove from logs
+                $logs = get_option( 'abg_backup_logs', array() );
+                foreach ( $logs as $key => $log ) {
+                    if ( $log['file'] === $file_name ) {
+                        unset( $logs[$key] );
+                        break;
+                    }
+                }
+                update_option( 'abg_backup_logs', array_values( $logs ) );
+                return true;
+            } else {
+                return new WP_Error( 'delete_failed', 'Failed to delete file from server.' );
+            }
+        }
+        
+        return new WP_Error( 'not_found', 'File not found on server.' );
     }
 
     private function log_backup( $filename ) {

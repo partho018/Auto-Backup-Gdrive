@@ -305,6 +305,28 @@ jQuery(document).ready(function($) {
         });
     });
 
+    // Delete Local Backup
+    $(document).on('click', '.abg-local-delete-btn', function() {
+        const fileName = $(this).data('name');
+        const $row = $(this).closest('.abg-log-item');
+
+        if (confirm('Are you sure you want to permanently delete this backup from the server?')) {
+            $.post(abg_vars.ajax_url, {
+                action: 'abg_delete_local_backup',
+                nonce: abg_vars.nonce,
+                file_name: fileName
+            }, function(response) {
+                if (response.success) {
+                    $row.fadeOut(300, function() {
+                        $(this).remove();
+                    });
+                } else {
+                    alert('Error: ' + response.data);
+                }
+            });
+        }
+    });
+
     let progressInterval;
     let isProcessHalted = false;
 
