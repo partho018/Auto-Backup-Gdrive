@@ -30,7 +30,7 @@ jQuery(document).ready(function($) {
     $('#abg-upload-restore-btn').on('click', function() {
         const fileInput = $('#abg-upload-file')[0];
         if (fileInput.files.length === 0) {
-            alert('Please select a .mpack backup file first.');
+            alert('Please select a .zip backup file first.');
             return;
         }
 

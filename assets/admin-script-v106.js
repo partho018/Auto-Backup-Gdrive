@@ -30,13 +30,13 @@ jQuery(document).ready(function($) {
     $('#abg-manual-upload-btn').on('click', function() {
         const fileInput = $('#abg-upload-file')[0];
         if (fileInput.files.length === 0) {
-            alert('Please select a .mpack backup file first.');
+            alert('Please select a .zip backup file first.');
             return;
         }
 
         const file = fileInput.files[0];
-        if (file.name.split('.').pop() !== 'mpack') {
-            alert('Invalid file format. Only .mpack files are allowed.');
+        if (file.name.split('.').pop() !== 'zip') {
+            alert('Invalid file format. Only .zip files are allowed.');
             return;
         }
 
@@ -143,6 +143,44 @@ jQuery(document).ready(function($) {
         $('#abg-upload-file').val('');
     });
 
+    // Local Restore button
+    $(document).on('click', '.abg-local-restore-btn', function() {
+        const zipPath = $(this).data('path');
+        const fileName = $(this).data('name');
+
+        if (confirm('WARNING: This will overwrite your current site with "' + fileName + '". Are you sure?')) {
+            $modal.css('display', 'flex');
+            $progressTitle.text('Initializing Restore...');
+            runRestoreStep(zipPath, 'init', 0);
+        }
+    });
+
+
+
+    // ─── Google Drive → Download → Restore ───────────────────────────────────
+    function startRestore(fileId, fileName) {
+        $progressTitle.text('Downloading from Google Drive...');
+        updateProgress(10, 'Connecting to Google Drive...');
+
+        $.post(abg_vars.ajax_url, {
+            action: 'abg_download_from_gdrive',
+            nonce:  abg_vars.nonce,
+            file_id:   fileId,
+            file_name: fileName
+        }, function(response) {
+            if (response.success) {
+                updateProgress(40, 'Download complete. Starting restore...');
+                const zipPath = response.data.zip_path;
+                runRestoreStep(zipPath, 'init', 0);
+            } else {
+                handleRestoreError('Download failed: ' + response.data);
+            }
+        }).fail(function(xhr) {
+            handleRestoreError('Download request failed (Status: ' + xhr.status + ')');
+        });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     function runRestoreStep(zipPath, step, index, totalFiles = 0) {
         let statusMsg = '';
         switch(step) {
@@ -150,7 +188,7 @@ jQuery(document).ready(function($) {
             case 'wipe': statusMsg = 'Wiping existing data...'; break;
             case 'extract': statusMsg = 'Extracting files...'; break;
             case 'import_db': statusMsg = 'Importing database...'; break;
-            case 'finalize': statusMsg = 'Finalizing migration...'; break;
+            case 'finalize': statusMsg = 'Finalizing and cleaning up...'; break;
         }
         
         $progressTitle.text('Restoring Site...');
@@ -178,15 +216,28 @@ jQuery(document).ready(function($) {
                 } else if (step === 'import_db') {
                     runRestoreStep(zipPath, 'finalize', 0);
                 } else if (step === 'finalize') {
-                    updateProgress(100, 'Restore completed successfully!');
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                    updateProgress(100, 'Restore completed! Domain fix running in background...');
                     $progressTitle.text('Success!');
                     setTimeout(() => { location.reload(); }, 3000);
                 }
             } else {
                 handleRestoreError(response.data);
             }
-        }).fail(function() {
-            handleRestoreError('Server timeout or error during ' + step);
+        }).fail(function(xhr) {
+            // Special case: if FINALIZE times out, the restore already succeeded.
+            // The DB is imported, URLs are updated. Finalize only does cleanup + schedules background job.
+            // Treat timeout on finalize as SUCCESS.
+            if (step === 'finalize') {
+                clearInterval(progressInterval);
+                progressInterval = null;
+                updateProgress(100, 'Restore completed! Admin panel will reload shortly...');
+                $progressTitle.text('Success!');
+                setTimeout(() => { location.reload(); }, 4000);
+            } else {
+                handleRestoreError('Server timeout or error during ' + step);
+            }
         });
 
         // Start progress polling

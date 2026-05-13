@@ -25,6 +25,8 @@ class ABG_Scheduler {
         add_action( 'wp_ajax_abg_manual_restore_step', array( $this, 'ajax_manual_restore_step' ) );
         add_action( 'wp_ajax_abg_manual_upload_chunk', array( $this, 'ajax_manual_upload_chunk' ) );
         add_action( 'wp_ajax_abg_disconnect', array( $this, 'ajax_disconnect' ) );
+        add_action( 'wp_ajax_abg_fix_domain', array( $this, 'ajax_fix_domain' ) );
+        add_action( 'wp_ajax_abg_download_from_gdrive', array( $this, 'ajax_download_from_gdrive' ) );
         add_action( 'update_option_abg_settings', array( $this, 'reschedule_backups' ), 10, 2 );
     }
 
@@ -166,6 +168,9 @@ class ABG_Scheduler {
     }
 
     public function ajax_get_progress() {
+        check_ajax_referer( 'abg_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
         if ( isset( $_GET['get_total'] ) ) {
             wp_send_json_success( array( 
                 'total_files' => get_option( 'abg_backup_total_files', 0 ) 
@@ -199,7 +204,7 @@ class ABG_Scheduler {
         }
 
         $file_name = sanitize_text_field( $_POST['file_name'] );
-        if ( pathinfo( $file_name, PATHINFO_EXTENSION ) !== 'mpack' ) {
+        if ( pathinfo( $file_name, PATHINFO_EXTENSION ) !== 'zip' ) {
             wp_send_json_error( 'Invalid file format.' );
         }
 
@@ -258,6 +263,55 @@ class ABG_Scheduler {
             wp_send_json_error( $result->get_error_message() );
         } else {
             wp_send_json_success( $result );
+        }
+    }
+
+    /**
+     * Download a backup from Google Drive to local server, then start restore.
+     */
+    public function ajax_download_from_gdrive() {
+        check_ajax_referer( 'abg_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $file_id   = sanitize_text_field( $_POST['file_id'] );
+        $file_name = sanitize_file_name( $_POST['file_name'] );
+
+        if ( empty( $file_id ) || empty( $file_name ) ) {
+            wp_send_json_error( 'Invalid file ID or name.' );
+        }
+
+        $engine      = new ABG_Backup_Engine();
+        $destination = $engine->backup_dir . '/' . $file_name;
+
+        if ( ! file_exists( $engine->backup_dir ) ) {
+            wp_mkdir_p( $engine->backup_dir );
+        }
+
+        $gdrive = new ABG_GDrive_Service();
+        $result = $gdrive->download_file( $file_id, $destination );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( $result->get_error_message() );
+        }
+
+        if ( ! file_exists( $destination ) || filesize( $destination ) === 0 ) {
+            wp_send_json_error( 'Download failed: file is empty or missing.' );
+        }
+
+        wp_send_json_success( array( 'zip_path' => $destination ) );
+    }
+
+    public function ajax_fix_domain() {
+        check_ajax_referer( 'abg_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $engine = new ABG_Backup_Engine();
+        $result = $engine->fix_domain_manually();
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( $result->get_error_message() );
+        } else {
+            wp_send_json_success( 'Domain URLs updated successfully!' );
         }
     }
 

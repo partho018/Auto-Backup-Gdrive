@@ -66,9 +66,28 @@ class ABG_Settings_Page {
         $cloud_backups = array();
         if ( $is_connected ) {
             $gdrive = new ABG_GDrive_Service();
-            $domain = parse_url( get_site_url(), PHP_URL_HOST );
-            $folder_id = $gdrive->get_or_create_folder( $domain );
-            $cloud_backups = array_slice( $gdrive->list_folder_files( $folder_id ), 0, 3 );
+            // Always use the fixed folder name 'ABG Backups' — same as backup engine uses
+            $folder_id = $gdrive->get_or_create_folder( 'ABG Backups' );
+            $cloud_backups = array_slice( $gdrive->list_folder_files( $folder_id ), 0, 5 );
+        }
+
+        // Fetch Local Backups (Files ready to restore)
+        $engine = new ABG_Backup_Engine();
+        $local_backups = array();
+        if ( is_dir( $engine->backup_dir ) ) {
+            $files = scandir( $engine->backup_dir, SCANDIR_SORT_DESCENDING );
+            foreach ( $files as $file ) {
+                if ( pathinfo( $file, PATHINFO_EXTENSION ) === 'zip' ) {
+                    $path = $engine->backup_dir . '/' . $file;
+                    $local_backups[] = array(
+                        'name' => $file,
+                        'size' => filesize( $path ),
+                        'time' => filemtime( $path ),
+                        'path' => $path
+                    );
+                }
+                if ( count( $local_backups ) >= 3 ) break;
+            }
         }
 
         // If success in URL, we might be in a popup
@@ -239,21 +258,25 @@ class ABG_Settings_Page {
 					</div>
 
                     <div class="abg-card abg-recent-backups">
-						<h3><?php _e( 'Recent Backups', 'auto-backup-gdrive' ); ?></h3>
+						<h3><?php _e( 'Local Backups (Available)', 'auto-backup-gdrive' ); ?></h3>
 						<ul class="abg-list">
 							<?php
-                            $logs = array_slice( get_option( 'abg_backup_logs', array() ), 0, 3 );
-                            if ( empty( $logs ) ) :
+                            if ( empty( $local_backups ) ) :
                                 ?>
-                                <li class="empty"><?php _e( 'No backups found yet.', 'auto-backup-gdrive' ); ?></li>
+                                <li class="empty"><?php _e( 'No local backups found.', 'auto-backup-gdrive' ); ?></li>
                                 <?php
                             else :
-                                foreach ( $logs as $log ) :
+                                foreach ( $local_backups as $backup ) :
                                     ?>
                                     <li>
-                                        <div class="abg-log-item">
-                                            <span class="abg-log-time"><span class="dashicons dashicons-calendar-alt"></span> <?php echo date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $log['time'] ); ?></span>
-                                            <span class="abg-log-file"><?php echo esc_html( $log['file'] ); ?></span>
+                                        <div class="abg-log-item" style="display: flex; justify-content: space-between; align-items: center;">
+                                            <div style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                                <span class="abg-log-time" style="font-size: 10px;"><span class="dashicons dashicons-calendar-alt" style="font-size: 12px; width: 12px; height: 12px;"></span> <?php echo date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $backup['time'] ); ?></span>
+                                                <span class="abg-log-file" title="<?php echo esc_attr( $backup['name'] ); ?>" style="font-size: 11px; display: block;"><?php echo esc_html( $backup['name'] ); ?></span>
+                                            </div>
+                                            <button type="button" class="button button-small abg-local-restore-btn" data-path="<?php echo esc_attr( $backup['path'] ); ?>" data-name="<?php echo esc_attr( $backup['name'] ); ?>" style="font-size: 10px; padding: 0 8px;">
+                                                <?php _e( 'Restore', 'auto-backup-gdrive' ); ?>
+                                            </button>
                                         </div>
                                     </li>
                                     <?php
@@ -266,9 +289,9 @@ class ABG_Settings_Page {
                     <div class="abg-card" style="margin-top: 20px; border-top: 4px solid var(--abg-primary);">
                         <h3><span class="dashicons dashicons-upload"></span> <?php _e( 'Manual Upload', 'auto-backup-gdrive' ); ?></h3>
                         <div class="abg-upload-area">
-                            <p class="description" style="font-size: 12px;"><?php _e( 'Upload a .mpack backup to restore.', 'auto-backup-gdrive' ); ?></p>
+                            <p class="description" style="font-size: 12px;"><?php _e( 'Upload a .zip backup to restore.', 'auto-backup-gdrive' ); ?></p>
                             <div class="abg-upload-box" id="abg-upload-container" style="flex-direction: column; padding: 15px; text-align: center;">
-                                <input type="file" id="abg-upload-file" accept=".mpack" style="width: 100%; margin-bottom: 10px;">
+                                <input type="file" id="abg-upload-file" accept=".zip" style="width: 100%; margin-bottom: 10px;">
                                 <button type="button" id="abg-manual-upload-btn" class="button button-primary" style="width: 100%;">
                                     <span class="dashicons dashicons-cloud-upload"></span> <?php _e( 'Upload File', 'auto-backup-gdrive' ); ?>
                                 </button>
@@ -282,7 +305,7 @@ class ABG_Settings_Page {
                                 <button type="button" id="abg-upload-another" class="button button-link" style="margin-top: 10px; font-size: 12px; color: #d63638;"><?php _e( 'Upload Another', 'auto-backup-gdrive' ); ?></button>
                             </div>
                         </div>
-                    </div>
+
 				</aside>
 			</div>
 
