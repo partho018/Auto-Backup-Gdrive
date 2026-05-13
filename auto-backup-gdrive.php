@@ -3,7 +3,7 @@
  * Plugin Name: Auto Backup Gdrive
  * Plugin URI: https://pnscode.com
  * Description: Automatically back up your WordPress site and database to Google Drive.
- * Version: 1.1.1
+ * Version: 1.1.2
  * Author: Raju
  * Author URI: https://pnscode.com
  * License: GPL2
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define constants
-define( 'ABG_VERSION', '1.1.1' );
+define( 'ABG_VERSION', '1.1.2' );
 define( 'ABG_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ABG_URL', plugin_dir_url( __FILE__ ) );
 
